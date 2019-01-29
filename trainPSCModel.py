@@ -10,28 +10,27 @@ import jsonpickle as jp
 import csv
 
 
-num_called = 0
 LIST_OF_LABELS = 'PSC,baseline'.split(',')
 NCLASSES = 2
-output_dir = './customeEst'
+output_dir = './PSCmodelout'
 DATA_SIZE = 4200
 shift_value = 200
 useMemDataset = True
 
 hparams = {'train_data_path_mem':'./train_set.csv','eval_data_path_mem':'./eval_set.csv',
           'train_data_path_disk':'./train_set.tfrecord','eval_data_path_disk':'./eval_set.tfrecord',
-           'batch_size': 1024, 'augment': True, 'learning_rate':0.005,'train_steps':300000, 
+           'batch_size': 512, 'augment': True, 'learning_rate':0.005,'train_steps':300000, 
            'batch_norm': True, 'reg_constant': 0.005,
-           'ksize1':(32,1), 'nfil1':32, 'ksize2':(64,1), 'nfil2':32, 'ksize3':(128,1), 'nfil3':64, 'ksize4':(256,1), 'nfil4':128,
-           'dense': 256,'rate':0.25,'kernel_stride':1}
+           'ksize1':32, 'nfil1':32, 'ksize2':64, 'nfil2':32, 'ksize3':128, 'nfil3':64, 'ksize4':256, 'nfil4':128,
+           'dense': 256,'rate':0.1,'kernel_stride':1}
 
 
-def cnn_model(img, mode, hparams):
+def cnn_model(inputData, mode, hparams):
   # get hyper parameters
-  ksize1 = hparams.get('ksize1', (128,1))
-  ksize2 = hparams.get('ksize2', (128,1))
-  ksize3 = hparams.get('ksize3',(128,1))
-  ksize4 = hparams.get('ksize4',(128,1))
+  ksize1 = hparams.get('ksize1', 128)
+  ksize2 = hparams.get('ksize2', 128)
+  ksize3 = hparams.get('ksize3',128)
+  ksize4 = hparams.get('ksize4',128)
   nfil1 = hparams.get('nfil1', 10)
   nfil2 = hparams.get('nfil2', 20)
   nfil3 = hparams.get('nfil3', 20)
@@ -43,40 +42,40 @@ def cnn_model(img, mode, hparams):
   # l2 regularization
   regularizer = tf.contrib.layers.l2_regularizer(scale=0.1)
   # first unit, convolutional layer + relu+ maxpooling
-  conv_result = tf.layers.conv2d(img, filters=nfil1,
+  conv_result = tf.layers.conv1d(inputData, filters=nfil1,
                           kernel_size=ksize1, strides=kernel_stride, 
                           padding='same', activation=tf.nn.relu,
                           kernel_initializer=tf.initializers.random_normal(),
                           use_bias=True,bias_initializer=tf.initializers.random_normal(),
                           kernel_regularizer=regularizer)
-  conv_result = tf.layers.max_pooling2d(conv_result,pool_size=(2,1), strides=1)
+  conv_result = tf.layers.max_pooling1d(conv_result,pool_size=2, strides=1)
   # second unit, convolutional layer + relu+ maxpooling
-  conv_result = tf.layers.conv2d(conv_result, filters=nfil2,
+  conv_result = tf.layers.conv1d(conv_result, filters=nfil2,
                           kernel_size=ksize2, strides=kernel_stride, 
                           padding='same', activation=tf.nn.relu,
                           kernel_initializer=tf.initializers.random_normal(),
                           use_bias=True,bias_initializer=tf.initializers.random_normal(),
                           kernel_regularizer=regularizer)
-  conv_result = tf.layers.max_pooling2d(conv_result,pool_size=(2,1), strides=(2,1))
+  conv_result = tf.layers.max_pooling1d(conv_result,pool_size=2, strides=2)
   # third unit, convolutional layer + relu+ maxpooling
-  conv_result = tf.layers.conv2d(conv_result, filters=nfil3,
+  conv_result = tf.layers.conv1d(conv_result, filters=nfil3,
                           kernel_size=ksize3, strides=kernel_stride, 
                           padding='same', activation=tf.nn.relu,
                           kernel_initializer=tf.initializers.random_normal(),
                           use_bias=True,bias_initializer=tf.initializers.random_normal(),
                           kernel_regularizer=regularizer)
-  conv_result = tf.layers.max_pooling2d(conv_result,pool_size=(2,1), strides=(2,1))
+  conv_result = tf.layers.max_pooling1d(conv_result,pool_size=2, strides=2)
   # fourth unit, convolutional layer + relu+ maxpooling
-  conv_result = tf.layers.conv2d(conv_result, filters=nfil4,
+  conv_result = tf.layers.conv1d(conv_result, filters=nfil4,
                           kernel_size=ksize4, strides=kernel_stride, 
                           padding='same', activation=tf.nn.relu,
                           kernel_initializer=tf.initializers.random_normal(),
                           use_bias=True,bias_initializer=tf.initializers.random_normal(),
                           kernel_regularizer=regularizer)
-  conv_result = tf.layers.max_pooling2d(conv_result,pool_size=(2,1), strides=(2,1))
+  conv_result = tf.layers.max_pooling1d(conv_result,pool_size=2, strides=2)
   
   # reshape the conv layers to prepare for connection to the dense layer
-  outlen = conv_result.shape[1]*conv_result.shape[2]*conv_result.shape[3] 
+  outlen = conv_result.shape[1]*conv_result.shape[2]
   conv_result = tf.reshape(conv_result, [-1, outlen]) # flattened
 
   #apply batch normalization
@@ -101,35 +100,35 @@ def read_and_preprocess_with_augment(data):
   return read_and_preprocess(data, augment=True)
     
 def read_and_preprocess(data, augment=False):
-  image = data['data']
-  image = tf.reshape(image, (4200,1))
+  inputData = data['data']
+  inputData = tf.reshape(inputData, (DATA_SIZE,1))
   if augment:
     shift_step = tf.random.uniform([1], minval = -shift_value, maxval=shift_value, dtype=tf.int32)
-    image = tf.roll(image, shift_step[0], 0)
-  image = image - tf.reduce_mean(image) #Remove mean
-  image = (image - tf.reduce_min(image))/(tf.reduce_max(image) - tf.reduce_min(image)) #range: 0~1
-  image = image - 0.5 #range: -0.5~0.5
-  image = image * 2 #range: -1~1
-  image = tf.expand_dims(image, 1) #Add channel dim
-  return {'data': image}, data['label']
+    inputData = tf.roll(inputData, shift_step[0], 0)
+  inputData = inputData - tf.reduce_mean(inputData) #Remove mean
+  inputData = (inputData - tf.reduce_min(inputData))/(tf.reduce_max(inputData) - tf.reduce_min(inputData)) #range: 0~1
+  inputData = inputData - 0.5 #range: -0.5~0.5
+  inputData = inputData * 2 #range: -1~1
+  features={}
+  features['data'] = inputData
+  return features, data['label']
 
 def serving_input_fn():
     # Note: only handles one image at a time 
     feature_placeholders = {'data': tf.placeholder(tf.float32, shape=(DATA_SIZE,1))}
-    image = feature_placeholders['data']
-    image = image - tf.reduce_mean(image) #Remove mean
-    image = (image - tf.reduce_min(image))/(tf.reduce_max(image) - tf.reduce_min(image)) #range: 0~1
-    image = image - 0.5 #range: -0.5~0.5
-    image = image * 2 #range: -1~1
-    image = tf.expand_dims(image,1) #add channel dim
-    image = tf.expand_dims(image,0) #add batch dim
-    inputdata = {}
-    inputdata['data'] = image
-    return tf.estimator.export.ServingInputReceiver(inputdata, feature_placeholders)
+    inputData = feature_placeholders['data']
+    inputData = inputData - tf.reduce_mean(inputData) #Remove mean
+    inputData = (inputData - tf.reduce_min(inputData))/(tf.reduce_max(inputData) - tf.reduce_min(inputData)) #range: 0~1
+    inputData = inputData - 0.5 #range: -0.5~0.5
+    inputData = inputData * 2 #range: -1~1
+    inputData = tf.expand_dims(inputData,0) #add batch dim
+    features = {}
+    features['data'] = inputData
+    return tf.estimator.export.ServingInputReceiver(features, feature_placeholders)
 
 	# setup the input function. Tensorflow expects a input function takes no arg, 
 	# this is a workaround
-def make_input_fn_mem(csv_of_filenames, batch_size, mode, augment=False, data_size = DATA_SIZE):
+def make_input_fn_mem(csv_of_filenames, batch_size, mode, augment=False):
     def _input_fn():
       original_data = {'data':[], 'label':[]}
       with open(csv_of_filenames) as csv_file:
@@ -140,7 +139,7 @@ def make_input_fn_mem(csv_of_filenames, batch_size, mode, augment=False, data_si
           with open(filename) as dataFile:
             tempData = dataFile.read()
             tempData = jp.decode(tempData)
-            if(tempData.shape[0] != data_size):
+            if(tempData.shape[0] != DATA_SIZE):
               continue
             original_data['data'].append(tf.constant(tempData, tf.float32))
             original_data['label'].append(label)
@@ -161,12 +160,12 @@ def make_input_fn_mem(csv_of_filenames, batch_size, mode, augment=False, data_si
         return dataset
     return _input_fn
   
-def make_input_fn_disk(tfrecord, batch_size, mode, augment=False, data_size = DATA_SIZE):
+def make_input_fn_disk(tfrecord, batch_size, mode, augment=False):
     def _input_fn():
       def extract_fn(data_record):
-        features = {'data': tf.FixedLenFeature([data_size,], tf.float32),'label': tf.FixedLenFeature([1], tf.string)}
+        features = {'data': tf.FixedLenFeature([DATA_SIZE,], tf.float32),'label': tf.FixedLenFeature([1], tf.string)}
         sample = tf.parse_single_example(data_record, features)
-        sample['data'] = tf.reshape(sample['data'], (data_size,1))
+        sample['data'] = tf.reshape(sample['data'], (DATA_SIZE,1))
         sample['label'] = sample['label'][0]
         return sample
       dataset = tf.data.TFRecordDataset([tfrecord])
@@ -194,12 +193,10 @@ def image_classifier(features, labels, mode, params):
   
   if mode == tf.estimator.ModeKeys.TRAIN or mode == tf.estimator.ModeKeys.EVAL:
     #convert string label to int
-    labels_table = tf.contrib.lookup.index_table_from_tensor(
-      tf.constant(LIST_OF_LABELS))
+    labels_table = tf.contrib.lookup.index_table_from_tensor(tf.constant(LIST_OF_LABELS))
     labels = labels_table.lookup(labels)
     #Get the loss
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
-        logits=ylogits, labels=tf.one_hot(labels, nclasses)))
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=ylogits, labels=tf.one_hot(labels, nclasses)))
     reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
     loss = loss+ params['reg_constant'] * sum(reg_losses)
 	
@@ -249,15 +246,13 @@ def train_and_evaluate(output_dir, hparams):
                                         hparams['train_data_path_mem'],
                                         hparams['batch_size'],
                                         mode = tf.estimator.ModeKeys.TRAIN,
-                                        augment = hparams['augment'],
-                                        data_size =DATA_SIZE),
+                                        augment = hparams['augment']),
                                       max_steps = hparams['train_steps'])
     exporter = tf.estimator.LatestExporter('exporter', serving_input_fn)
     eval_spec = tf.estimator.EvalSpec(input_fn = make_input_fn_mem(
                                         hparams['eval_data_path_mem'],
                                         hparams['batch_size'],
-                                        mode = tf.estimator.ModeKeys.EVAL,
-                                        data_size =DATA_SIZE),
+                                        mode = tf.estimator.ModeKeys.EVAL),
                                     steps = None,
                                     exporters = exporter,
                                     start_delay_secs = EVAL_INTERVAL,
@@ -267,15 +262,13 @@ def train_and_evaluate(output_dir, hparams):
                                         hparams['train_data_path_disk'],
                                         hparams['batch_size'],
                                         mode = tf.estimator.ModeKeys.TRAIN,
-                                        augment = hparams['augment'],
-                                        data_size =DATA_SIZE),
+                                        augment = hparams['augment']),
                                       max_steps = hparams['train_steps'])
     exporter = tf.estimator.LatestExporter('exporter', serving_input_fn)
     eval_spec = tf.estimator.EvalSpec(input_fn = make_input_fn_disk(
                                         hparams['eval_data_path_disk'],
                                         hparams['batch_size'],
-                                        mode = tf.estimator.ModeKeys.EVAL,
-                                        data_size =DATA_SIZE),
+                                        mode = tf.estimator.ModeKeys.EVAL),
                                     steps = None,
                                     exporters = exporter,
                                     start_delay_secs = EVAL_INTERVAL,
