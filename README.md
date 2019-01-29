@@ -37,7 +37,7 @@ Use combinetfRecord.py to create /eval_set.tfrecord with all the file path and l
 
 ## Results
 PSC training data example:
-![PSC](https://raw.githubusercontent.com/TuziUsagi/CNN-based-face-classifier-in-tensorflow/master/results/otherfacedet1.jpg)
+![PSC](https://raw.githubusercontent.com/TuziUsagi/PyPSC/master/exampleFigures/PSC_example.png)
 
 Baseline training data example:
-![baseline](https://raw.githubusercontent.com/TuziUsagi/CNN-based-face-classifier-in-tensorflow/master/results/detectResult1.jpg)
+![baseline](https://raw.githubusercontent.com/TuziUsagi/PyPSC/master/exampleFigures/baseline_example.png)
