@@ -1,0 +1,1 @@
+{"py/reduce": [{"py/function": "numpy.core.multiarray._reconstruct"}, {"py/tuple": [{"py/type": "numpy.ndarray"}, {"py/tuple": [0]}, {"py/b64": "Yg==\n"}]}, {"py/tuple": [1, {"py/tuple": [0]}, {"py/reduce": [{"py/type": "numpy.dtype"}, {"py/tuple": ["f4", 0, 1]}, {"py/tuple": [3, "<", null, null, null, -1, -1, 0]}, null, null]}, false, {"py/b64": ""}]}, null, null]}
