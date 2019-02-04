@@ -41,3 +41,6 @@ PSC training data example:
 
 Baseline training data example:
 ![baseline](https://raw.githubusercontent.com/TuziUsagi/PyPSC/master/exampleFigures/baseline_example.png)
+
+Training accuarcy
+![accuarcy](https://raw.githubusercontent.com/TuziUsagi/PyPSC/master/exampleFigures/accuracy.svg?sanitize=true)
